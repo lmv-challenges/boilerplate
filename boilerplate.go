@@ -1,8 +1,8 @@
 package boilerplate
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -10,21 +10,25 @@ type ProcessFunc[T any, U any] func(in []T) (out []U)
 
 type SliceScanner[U any] func() (out []U, err error)
 
-func WithLengthAndSliceScanner[X any](reader *bufio.Reader) ([]X, error) {
-	var n uint
-	_, err := fmt.Fscan(reader, &n)
-	if err != nil {
-		return nil, fmt.Errorf("failed to scan n: %w", err)
-	}
-	elems := make([]X, n)
-	for i := range n {
-		_, err = fmt.Fscan(reader, &elems[i])
+// WithLengthAndSliceScanner returns a closure that reads an integer n from reader followed by n elements of type U.
+// The closure returns a slice of U containing the n elements.
+func WithLengthAndSliceScanner[U any](reader io.Reader) SliceScanner[U] {
+	return func() ([]U, error) {
+		var n uint
+		_, err := fmt.Fscan(reader, &n)
 		if err != nil {
-			var zero X
-			return nil, fmt.Errorf("failed to read %T i=%d: %w", zero, i, err)
+			return nil, fmt.Errorf("failed to scan n: %w", err)
 		}
+		elems := make([]U, n)
+		for i := range n {
+			_, err = fmt.Fscan(reader, &elems[i])
+			if err != nil {
+				var zero U
+				return nil, fmt.Errorf("failed to read %T i=%d: %w", zero, i, err)
+			}
+		}
+		return elems, nil
 	}
-	return elems, nil
 }
 
 type SlicePrinter[U any] func(out []U)
@@ -47,7 +51,7 @@ func ScanProcessPrint[T any, U any](f ProcessFunc[T, U], r SliceScanner[T], w Sl
 	return nil
 }
 
-func WithTestCases(f func() error, reader *bufio.Reader) error {
+func WithTestCases(f func() error, reader io.Reader) error {
 	var n uint
 	_, err := fmt.Fscan(reader, &n)
 	if err != nil {
