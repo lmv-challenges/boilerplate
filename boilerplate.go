@@ -24,10 +24,29 @@ func WithLengthAndSliceScanner[U any](reader io.Reader) SliceScanner[U] {
 			_, err = fmt.Fscan(reader, &elems[i])
 			if err != nil {
 				var zero U
-				return nil, fmt.Errorf("failed to read %T i=%d: %w", zero, i, err)
+				return nil, fmt.Errorf("failed to read element type=%T i=%d: %w", zero, i, err)
 			}
 		}
 		return elems, nil
+	}
+}
+
+// WithSliceScanner returns a closure that reads n elements of type U and returns them in a slice.
+func WithSliceScanner[U any](reader io.Reader) SliceScanner[U] {
+	return func() ([]U, error) {
+		var elems []U
+		for i := 0; ; i++ {
+			var elem U
+			_, err := fmt.Fscan(reader, &elem)
+			if err == io.EOF {
+				return elems, nil
+			}
+			if err != nil {
+				var zero U
+				return nil, fmt.Errorf("failed to read element type=%T i=%d: %w", zero, i, err)
+			}
+			elems = append(elems, elem)
+		}
 	}
 }
 
